@@ -1,0 +1,99 @@
+---
+title: "heatmap"
+author: "Geng"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+https://mp.weixin.qq.com/s/D_yeyrekuqWJlsb6G5k18g
+```{r cars}
+data = mtcars
+
+#载入数据处理R包；
+library(dplyr)
+#对数据进行归一化；
+#由于scale函数默认对列进行归一化，因此这里做了两次转置；
+df_scaled <- t(scale(t(data)))
+#接下来计算获得数据的大小范围；
+range(df_scaled)
+
+#将关系矩阵转换成关系对表格(ggplot2仅支持长数据)；
+ht <- reshape2::melt(df_scaled,value.name="Exp",na.rm = F)
+#更改列名；
+colnames(ht)[1:2] <- c("gene","sample")
+#预览数据；
+head(ht,12)
+
+#转成因子，避免ggplot2自动排序；
+#为了确保绘图顺序从上到下，可以颠倒level的顺序；
+ht$gene <- factor(ht$gene,
+                     levels = rev(unique(ht$gene)),
+                     ordered = T)
+ht$sample <- factor(ht$sample,
+                       levels = unique(ht$sample),
+                       ordered = T)
+
+#载入ggplot2包；
+library(ggplot2)
+#初步尝试绘制方格热图,将点的样式设置为矩形，颜色和大小都与表达量数据建立映射；
+p1 <- ggplot(ht, aes(sample,gene)) +
+  geom_point(aes(fill = Exp,size=Exp),colour = "white",shape = 22)
+p1
+
+#自定义渐变颜色,隐藏坐标轴标题和方块大小图例；
+p2 <- p1+scale_fill_gradient2(low = "#13a075",
+                              mid = "white",
+                             high = "#e69f03",
+                             midpoint = 0)+
+  scale_size_continuous(guide = FALSE)+
+  labs(x=NULL,y=NULL)
+p2
+
+#修改标签位置，将横轴标签置于顶部，并修改标签文字样式；
+p3 <- p2+scale_x_discrete(position = "top")+
+  scale_y_discrete(position = "right")+
+  theme(axis.text.x.top = element_text(angle = 45,
+                                       face = "italic",
+                                       size = 7,
+                                       hjust=0,
+                                       vjust = 0.01),
+        axis.text.y = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 8),
+        panel.background = element_blank())
+p3
+
+#调整颜色条的样式，比如宽高、刻度颜色等；
+p4 <- p3 + guides(fill = guide_colourbar(direction = "vertical",
+                                   ticks.colour="black",
+                                   frame.colour="white",
+                                   barheight=5,
+                                   barwidth=0.8))
+p4
+
+#绘制聚类树；
+library(ggtree)
+#计算距离矩阵,dist默认对矩阵的行进行计算；
+#然后进行分层聚类(Hierarchical cluster)；并使用ggtree绘制聚类树；
+phc <- hclust(dist(df_scaled)) %>% ggtree(color="grey50",size=0.3,branch.length= 'none')
+#将聚类树置于热图左侧；
+library(aplot)
+p5 <- p4 %>% insert_left(phc,width = 0.3)
+p5
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
